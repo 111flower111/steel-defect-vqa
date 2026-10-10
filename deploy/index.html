@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钢材表面缺陷检测报告系统</title>
+<style>
+  body { font-family: -apple-system, "Microsoft YaHei", sans-serif; margin: 0;
+         background: #f5f7fa; color: #333; }
+  .container { max-width: 860px; margin: 40px auto; padding: 0 20px; }
+  h1 { text-align: center; color: #1a1a2e; font-size: 26px; }
+  .subtitle { text-align: center; color: #888; margin-top: -10px; font-size: 14px; }
+  .card { background: #fff; border-radius: 12px; padding: 28px;
+          box-shadow: 0 2px 12px rgba(0,0,0,.08); margin-top: 24px; }
+  .upload-zone { border: 2px dashed #c8d0dc; border-radius: 10px; padding: 40px;
+                 text-align: center; cursor: pointer; transition: .2s; }
+  .upload-zone:hover { border-color: #4a7dff; background: #f8faff; }
+  .upload-zone img { max-width: 320px; max-height: 260px; border-radius: 8px; margin-bottom: 10px; }
+  input[type=file] { display: none; }
+  .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 8px;
+         background: #4a7dff; color: #fff; font-size: 16px; cursor: pointer; margin-top: 16px; }
+  .btn:hover { background: #3a66d9; }
+  .btn:disabled { background: #a9b8d9; cursor: not-allowed; }
+  .result { margin-top: 20px; }
+  .result pre { background: #f8f9fb; border-radius: 8px; padding: 16px; overflow-x: auto;
+                font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+  .field { display: flex; margin: 8px 0; font-size: 15px; }
+  .field .label { width: 110px; color: #888; flex-shrink: 0; }
+  .field .value { font-weight: 600; }
+  .severity-严重 { color: #e23; }
+  .severity-中等 { color: #e90; }
+  .severity-轻微 { color: #187; }
+  .loading { text-align: center; color: #888; padding: 20px; }
+  .error { color: #e23; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔍 钢材表面缺陷检测报告系统</h1>
+  <p class="subtitle">基于 Qwen2.5-VL · 上传图片自动生成结构化检测报告</p>
+
+  <div class="card">
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <img id="preview" style="display:none">
+      <div id="placeholder">点击上传钢材表面图片<br><small style="color:#aaa">支持 jpg / png</small></div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" onchange="previewFile(this)">
+    <button class="btn" id="btn" onclick="submitImage()" disabled>检测并生成报告</button>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+let selectedFile = null;
+
+function previewFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview').src = e.target.result;
+    document.getElementById('preview').style.display = 'block';
+    document.getElementById('placeholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('btn').disabled = false;
+}
+
+async function submitImage() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('btn');
+  const result = document.getElementById('result');
+  btn.disabled = true;
+  btn.textContent = '检测中...';
+  result.innerHTML = '<div class="loading">模型推理中，请稍候 ...</div>';
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+
+  try {
+    const resp = await fetch('/inspect', { method: 'POST', body: formData });
+    const data = await resp.json();
+    renderReport(data);
+  } catch (e) {
+    result.innerHTML = `<div class="error">请求失败：${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '检测并生成报告';
+  }
+}
+
+function renderReport(data) {
+  const result = document.getElementById('result');
+  if (!data.report) {
+    result.innerHTML = `<div class="error">模型输出解析失败，原始输出：<pre>${escapeHtml(data.raw)}</pre></div>`;
+    return;
+  }
+  const r = data.report;
+  const sev = r.severity || '';
+  result.innerHTML = `
+    <div class="card">
+      <h3 style="margin-top:0">📋 检测报告</h3>
+      <div class="field"><span class="label">缺陷类型</span>
+        <span class="value">${escapeHtml(r.defect_type_cn || '')} (${escapeHtml(r.defect_type || '')})</span></div>
+      <div class="field"><span class="label">严重程度</span>
+        <span class="value severity-${sev}">${escapeHtml(sev)}</span></div>
+      <div class="field"><span class="label">处理建议</span>
+        <span class="value">${escapeHtml(r.suggestion || '')}</span></div>
+      <div class="field"><span class="label">描述</span>
+        <span class="value">${escapeHtml(r.description || '')}</span></div>
+      <details><summary style="cursor:pointer;color:#4a7dff">查看完整 JSON</summary>
+        <pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre></details>
+    </div>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

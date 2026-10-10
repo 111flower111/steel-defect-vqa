@@ -1,0 +1,32 @@
+# ===== 模型权重 & 训练产物（体积大，不上传）=====
+train/outputs/
+quantize/awq-int4/
+*.safetensors
+*.bin
+*.pt
+*.pth
+checkpoint-*/
+
+# ===== 数据集（体积大，按需重新下载）=====
+data/images/
+data/meta/
+data/*.jsonl
+data/class_descriptions.json
+data/train-text.json
+data/val-text.json
+
+# ===== 缓存 =====
+.hf_cache/
+.venv/
+__pycache__/
+*.pyc
+.tmp/
+
+# ===== 日志 & 实验记录 =====
+*.log
+swanlog/
+runs.swanlab*
+
+# ===== 系统文件 =====
+.DS_Store
+*.swp
